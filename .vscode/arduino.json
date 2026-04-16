@@ -1,0 +1,10 @@
+{
+    "configuration": "PartitionScheme=huge_app,FlashMode=qio,FlashFreq=80,UploadSpeed=921600,DebugLevel=none,EraseFlash=none",
+    "board": "esp32:esp32:esp32wrover",
+    "port": "/dev/tty.wchusbserial210",
+    "sketch": "resources/C/Sketches/Sketch_Fridge_CAM/Sketch_Fridge_CAM.ino",
+    "output": "build",
+    "intelliSenseGen": "global",
+    "useArduinoCli": true,
+    "path": "/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources"
+}

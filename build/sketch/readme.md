@@ -1,0 +1,2 @@
+#line 1 "/Users/yangyang.fu/github/esp-cam/resources/C/Sketches/Sketch_Fridge_CAM/readme.md"
+I have a ESP32 camera module and a Shelly BLU door window contact sensor. I want detect the open/close information from the contact sensor in the ESP32. I’m using Anduino. 
