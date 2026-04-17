@@ -1,8 +1,8 @@
 {
     "configuration": "PartitionScheme=huge_app,FlashMode=qio,FlashFreq=80,UploadSpeed=921600,DebugLevel=none,EraseFlash=none",
     "board": "esp32:esp32:esp32wrover",
-    "port": "/dev/tty.usbserial-1420",
-    "sketch": "resources/C/Sketches/Sketch_03.1_SDMMC_Test/Sketch_03.1_SDMMC_Test.ino",
+    "port": "/dev/tty.wchusbserial210",
+    "sketch": "resources/C/Sketches/Sketch_Fridge_CAM/Sketch_Fridge_CAM.ino",
     "output": "build",
     "intelliSenseGen": "global",
     "useArduinoCli": true,

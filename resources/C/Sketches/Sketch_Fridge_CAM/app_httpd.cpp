@@ -105,10 +105,11 @@ static const char index_html[] = R"rawliteral(
   </div>
   <script>
     let streaming = false;
+    const streamPort = parseInt(location.port || 8080) + 1;
     function toggleStream() {
       const img = document.getElementById('stream');
       if (streaming) { img.src = ''; streaming = false; }
-      else { img.src = '/stream'; streaming = true; }
+      else { img.src = 'http://' + location.hostname + ':' + streamPort + '/stream'; streaming = true; }
     }
     function refreshLast() {
       document.getElementById('lastimg').src = '/last?t=' + Date.now();
@@ -399,6 +400,7 @@ static esp_err_t video_handler(httpd_req_t *req) {
 // ========================
 void startCameraServer() {
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+  config.server_port = 8080;
   config.max_uri_handlers = 10;
 
   httpd_uri_t index_uri   = { .uri = "/",        .method = HTTP_GET, .handler = index_handler,        .user_ctx = NULL };

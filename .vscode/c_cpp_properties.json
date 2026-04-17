@@ -3,7 +3,7 @@
     "configurations": [
         {
             "name": "Arduino",
-            "compilerPath": "/Users/yangyangfu/Library/Arduino15/packages/esp32/tools/esp-x32/2601/bin/xtensa-esp32-elf-g++",
+            "compilerPath": "/Users/yangyang.fu/Library/Arduino15/packages/esp32/tools/esp-x32/2511/bin/xtensa-esp32-elf-g++",
             "compilerArgs": [
                 "-MMD",
                 "-w",
@@ -14,21 +14,24 @@
             ],
             "intelliSenseMode": "gcc-x64",
             "includePath": [
-                "/Users/yangyangfu/github/esp-cam/resources/C/Sketches/Sketch_03.1_SDMMC_Test",
-                "/Users/yangyangfu/Library/Arduino15/packages/esp32/tools/esp32-libs/3.3.8/qio_qspi/include",
-                "/Users/yangyangfu/Library/Arduino15/packages/esp32/hardware/esp32/3.3.8/cores/esp32",
-                "/Users/yangyangfu/Library/Arduino15/packages/esp32/hardware/esp32/3.3.8/variants/esp32",
-                "/Users/yangyangfu/Library/Arduino15/packages/esp32/hardware/esp32/3.3.8/libraries/FS/src",
-                "/Users/yangyangfu/Library/Arduino15/packages/esp32/hardware/esp32/3.3.8/libraries/SD_MMC/src",
-                "/Users/yangyangfu/Library/Arduino15/packages/esp32/tools/esp-x32/2601/xtensa-esp-elf/include/c++/14.2.0",
-                "/Users/yangyangfu/Library/Arduino15/packages/esp32/tools/esp-x32/2601/xtensa-esp-elf/include/c++/14.2.0/xtensa-esp-elf/esp32",
-                "/Users/yangyangfu/Library/Arduino15/packages/esp32/tools/esp-x32/2601/xtensa-esp-elf/include/c++/14.2.0/backward",
-                "/Users/yangyangfu/Library/Arduino15/packages/esp32/tools/esp-x32/2601/lib/gcc/xtensa-esp-elf/14.2.0/include",
-                "/Users/yangyangfu/Library/Arduino15/packages/esp32/tools/esp-x32/2601/lib/gcc/xtensa-esp-elf/14.2.0/include-fixed",
-                "/Users/yangyangfu/Library/Arduino15/packages/esp32/tools/esp-x32/2601/xtensa-esp-elf/include"
+                "/Users/yangyang.fu/github/esp-cam/resources/C/Sketches/Sketch_Fridge_CAM",
+                "/Users/yangyang.fu/Library/Arduino15/packages/esp32/tools/esp32-libs/3.3.7/qio_qspi/include",
+                "/Users/yangyang.fu/Library/Arduino15/packages/esp32/hardware/esp32/3.3.7/cores/esp32",
+                "/Users/yangyang.fu/Library/Arduino15/packages/esp32/hardware/esp32/3.3.7/variants/esp32",
+                "/Users/yangyang.fu/Library/Arduino15/packages/esp32/hardware/esp32/3.3.7/libraries/WiFi/src",
+                "/Users/yangyang.fu/Library/Arduino15/packages/esp32/hardware/esp32/3.3.7/libraries/Network/src",
+                "/Users/yangyang.fu/Documents/Arduino/libraries/NimBLE-Arduino/src",
+                "/Users/yangyang.fu/Library/Arduino15/packages/esp32/hardware/esp32/3.3.7/libraries/SD_MMC/src",
+                "/Users/yangyang.fu/Library/Arduino15/packages/esp32/hardware/esp32/3.3.7/libraries/FS/src",
+                "/Users/yangyang.fu/Library/Arduino15/packages/esp32/tools/esp-x32/2511/xtensa-esp-elf/include/c++/14.2.0",
+                "/Users/yangyang.fu/Library/Arduino15/packages/esp32/tools/esp-x32/2511/xtensa-esp-elf/include/c++/14.2.0/xtensa-esp-elf/esp32",
+                "/Users/yangyang.fu/Library/Arduino15/packages/esp32/tools/esp-x32/2511/xtensa-esp-elf/include/c++/14.2.0/backward",
+                "/Users/yangyang.fu/Library/Arduino15/packages/esp32/tools/esp-x32/2511/lib/gcc/xtensa-esp-elf/14.2.0/include",
+                "/Users/yangyang.fu/Library/Arduino15/packages/esp32/tools/esp-x32/2511/lib/gcc/xtensa-esp-elf/14.2.0/include-fixed",
+                "/Users/yangyang.fu/Library/Arduino15/packages/esp32/tools/esp-x32/2511/xtensa-esp-elf/include"
             ],
             "forcedInclude": [
-                "/Users/yangyangfu/Library/Arduino15/packages/esp32/hardware/esp32/3.3.8/cores/esp32/Arduino.h"
+                "/Users/yangyang.fu/Library/Arduino15/packages/esp32/hardware/esp32/3.3.7/cores/esp32/Arduino.h"
             ],
             "cStandard": "c11",
             "cppStandard": "c++11",

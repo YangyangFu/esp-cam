@@ -24,11 +24,6 @@ const char *password_Router = "yyf_yz_2024";
 // ========================
 // Shelly BLU Door/Window
 // ========================
-// Set this to your sensor's BLE MAC address (empty string = accept any SBDW device)
-const char *SHELLY_BLU_MAC = "";
-
-// BTHome v2 service UUID (16-bit: 0xFCD2)
-static NimBLEUUID bthomeServiceUUID((uint16_t)0xFCD2);
 
 // ========================
 // SD card pins (1-bit SDMMC)
@@ -48,6 +43,7 @@ static NimBLEUUID bthomeServiceUUID((uint16_t)0xFCD2);
 // Shared state (accessed from BLE callback + loop)
 // ========================
 volatile bool     doorOpen        = false;
+volatile bool     doorStateKnown  = false;
 volatile uint8_t  batteryPercent  = 0;
 volatile uint32_t lastEventTime   = 0;
 volatile bool     requestStart    = false;  // BLE sets true on door open
@@ -58,8 +54,7 @@ bool     recording       = false;
 uint32_t recordingStart  = 0;
 char     recordingPath[48] = {0};
 
-// BLE scan control
-#define BLE_SCAN_DURATION  5  // seconds per scan cycle
+// BLE scan
 NimBLEScan *pBLEScan = NULL;
 
 // Last captured photo for web UI
@@ -74,7 +69,6 @@ camera_config_t config;
 // ========================
 void startCameraServer();
 void camera_init();
-void parseBTHomePayload(const uint8_t *data, int len);
 void startRecording();
 void stopRecording();
 void recordFrame();
@@ -82,58 +76,30 @@ void initBLE();
 void deinitBLE();
 
 // ========================
-// BLE scan callback
+// Helper: search for a 2-byte pattern in raw adv data
 // ========================
-class ShellyBLECallbacks : public NimBLEScanCallbacks {
-  void onResult(const NimBLEAdvertisedDevice *advertisedDevice) override {
-    // Filter by MAC if set
-    if (strlen(SHELLY_BLU_MAC) > 0) {
-      if (strcasecmp(advertisedDevice->getAddress().toString().c_str(), SHELLY_BLU_MAC) != 0) {
-        return;
-      }
-    } else {
-      // Accept devices whose name starts with "SBDW"
-      std::string name = advertisedDevice->getName();
-      if (name.empty() || name.rfind("SBDW", 0) != 0) {
-        if (!advertisedDevice->haveServiceData()) return;
-        std::string svcData = advertisedDevice->getServiceData(bthomeServiceUUID);
-        if (svcData.empty()) return;
-      }
-    }
-
-    if (!advertisedDevice->haveServiceData()) return;
-    std::string svcData = advertisedDevice->getServiceData(bthomeServiceUUID);
-    if (svcData.empty()) return;
-
-    // Debug: print device info on first detection
-    static bool firstSeen = true;
-    if (firstSeen) {
-      Serial.printf("[BLE] Found Shelly sensor — MAC: %s, Name: %s, RSSI: %d\n",
-        advertisedDevice->getAddress().toString().c_str(),
-        advertisedDevice->getName().c_str(),
-        advertisedDevice->getRSSI());
-      firstSeen = false;
-    }
-
-    const uint8_t *data = (const uint8_t *)svcData.data();
-    int len = svcData.length();
-    if (len < 2) return;
-
-    uint8_t deviceInfo = data[0];
-    bool encrypted = deviceInfo & 0x01;
-    uint8_t version = deviceInfo >> 5;
-    if (version != 2 || encrypted) return;
-
-    parseBTHomePayload(data + 1, len - 1);
+static bool findBytes(const uint8_t *data, int len, uint8_t b0, uint8_t b1) {
+  for (int i = 0; i < len - 1; i++) {
+    if (data[i] == b0 && data[i + 1] == b1) return true;
   }
-};
+  return false;
+}
 
 // ========================
-// Parse BTHome v2 objects
+// Parse BTHome v2 objects from raw AD payload
+// (data starts at the device-info byte)
 // ========================
-void parseBTHomePayload(const uint8_t *data, int len) {
-  int idx = 0;
+static void parseBTHomePayload(const uint8_t *data, int len) {
+  if (len < 1) return;
+
+  uint8_t deviceInfo = data[0];
+  bool encrypted = deviceInfo & 0x01;
+  uint8_t version = (deviceInfo >> 5) & 0x07;
+  if (version != 2 || encrypted) return;
+
   bool prevDoorOpen = doorOpen;
+  bool gotDoorEvent = false;
+  int idx = 1;
 
   while (idx < len) {
     uint8_t objId = data[idx++];
@@ -146,29 +112,20 @@ void parseBTHomePayload(const uint8_t *data, int len) {
       case 0x01:  // Battery (uint8, %)
         if (idx < len) batteryPercent = data[idx++];
         break;
-      case 0x05:  // Illuminance (uint24, factor 0.01)
+      case 0x05:  // Illuminance (uint24)
         if (idx + 2 < len) idx += 3;
         else idx = len;
         break;
       case 0x2D:  // Window (uint8): 0=closed, 1=open
+      case 0x1A:  // Door (uint8)
+      case 0x11:  // Opening (uint8)
         if (idx < len) {
           doorOpen = (data[idx++] != 0);
           lastEventTime = millis();
+          gotDoorEvent = true;
         }
         break;
-      case 0x1A:  // Door (uint8): 0=closed, 1=open
-        if (idx < len) {
-          doorOpen = (data[idx++] != 0);
-          lastEventTime = millis();
-        }
-        break;
-      case 0x11:  // Opening (uint8): 0=closed, 1=open
-        if (idx < len) {
-          doorOpen = (data[idx++] != 0);
-          lastEventTime = millis();
-        }
-        break;
-      case 0x3F:  // Rotation (int16, factor 0.1)
+      case 0x3F:  // Rotation (int16)
         if (idx + 1 < len) idx += 2;
         else idx = len;
         break;
@@ -177,14 +134,51 @@ void parseBTHomePayload(const uint8_t *data, int len) {
     }
   }
 
-  if (doorOpen && !prevDoorOpen) {
-    requestStart = true;
-    Serial.println("[BLE] Door OPENED");
-  } else if (!doorOpen && prevDoorOpen) {
-    requestStop = true;
-    Serial.println("[BLE] Door CLOSED");
+  if (gotDoorEvent && (!doorStateKnown || doorOpen != prevDoorOpen)) {
+    doorStateKnown = true;
+    if (doorOpen) {
+      requestStart = true;
+      Serial.println("[BLE] Door OPENED — requesting recording start");
+    } else {
+      requestStop = true;
+      Serial.println("[BLE] Door CLOSED — requesting recording stop");
+    }
   }
 }
+
+// ========================
+// BLE scan callback — raw byte approach (non-blocking)
+// ========================
+class ShellyBLECallbacks : public NimBLEScanCallbacks {
+  void onResult(const NimBLEAdvertisedDevice *dev) override {
+    const std::vector<uint8_t>& payload = dev->getPayload();
+    const uint8_t *raw = payload.data();
+    int rawLen = payload.size();
+
+    // Quick check: look for BTHome UUID (0xFCD2) or Shelly mfr ID (0x0BA9) in raw bytes
+    if (!findBytes(raw, rawLen, 0xD2, 0xFC) && !findBytes(raw, rawLen, 0xA9, 0x0B))
+      return;
+
+    // Walk AD structures to find Service Data with BTHome UUID
+    int pos = 0;
+    while (pos < rawLen - 1) {
+      uint8_t adLen = raw[pos];
+      if (adLen == 0 || pos + adLen >= rawLen) break;
+      uint8_t adType = raw[pos + 1];
+
+      // AD type 0x16 = Service Data (16-bit UUID)
+      if (adType == 0x16 && adLen >= 3) {
+        uint16_t uuid16 = raw[pos + 2] | (raw[pos + 3] << 8);
+        if (uuid16 == 0xFCD2) {
+          // BTHome data starts at pos+4, length = adLen-3
+          parseBTHomePayload(raw + pos + 4, adLen - 3);
+          return;
+        }
+      }
+      pos += adLen + 1;
+    }
+  }
+};
 
 // ========================
 // Recording control
@@ -195,19 +189,18 @@ void startRecording() {
     return;
   }
 
-  // Stop BLE scanning during recording to free memory
-  deinitBLE();
+  // BLE keeps scanning — no deinitBLE() so we can detect door close
 
   // Generate timestamped filename
   struct tm timeinfo;
   if (getLocalTime(&timeinfo)) {
     snprintf(recordingPath, sizeof(recordingPath),
-      "/sdcard/fridge_%04d%02d%02d_%02d%02d%02d.avi",
+      "/fridge_%04d%02d%02d_%02d%02d%02d.avi",
       timeinfo.tm_year + 1900, timeinfo.tm_mon + 1, timeinfo.tm_mday,
       timeinfo.tm_hour, timeinfo.tm_min, timeinfo.tm_sec);
   } else {
     snprintf(recordingPath, sizeof(recordingPath),
-      "/sdcard/fridge_%lu.avi", millis());
+      "/fridge_%lu.avi", millis());
   }
 
   // Get frame dimensions from current camera setting
@@ -259,9 +252,6 @@ void stopRecording() {
   uint32_t elapsed = millis() - recordingStart;
   Serial.printf("[REC] Stopped: %u frames, %u ms, file: %s\n",
     frames, elapsed, recordingPath);
-
-  // Restart BLE scanning after recording
-  initBLE();
 }
 
 void recordFrame() {
@@ -337,14 +327,14 @@ void setup() {
 
   // HTTP server
   startCameraServer();
-  Serial.printf("[HTTP] Server ready at http://%s\n", WiFi.localIP().toString().c_str());
+  Serial.printf("[HTTP] Server ready at http://%s:8080\n", WiFi.localIP().toString().c_str());
 
   // BLE init — after HTTP server so sockets are available for httpd
   initBLE();
 }
 
 // ========================
-// Loop
+// Loop (non-blocking — BLE scan runs in background)
 // ========================
 void loop() {
   // Handle door-open → start recording
@@ -370,11 +360,7 @@ void loop() {
     recordFrame();
   }
 
-  // BLE: run finite scan cycles
-  if (pBLEScan && !recording) {
-    pBLEScan->start(BLE_SCAN_DURATION, false);
-    pBLEScan->clearResults();
-  }
+  delay(1);  // yield to other tasks (BLE scan runs on its own)
 }
 
 // ========================
@@ -383,11 +369,14 @@ void loop() {
 void initBLE() {
   NimBLEDevice::init("");
   pBLEScan = NimBLEDevice::getScan();
-  pBLEScan->setScanCallbacks(new ShellyBLECallbacks(), true);
-  pBLEScan->setActiveScan(false);     // passive scan — less memory pressure
-  pBLEScan->setInterval(160);         // 160ms interval
-  pBLEScan->setWindow(30);            // 30ms window (~19% duty)
-  Serial.println("[BLE] Scanning for Shelly BLU Door/Window sensor...");
+  pBLEScan->setScanCallbacks(new ShellyBLECallbacks(), false);
+  pBLEScan->setActiveScan(true);      // active scan for full advertisement data
+  pBLEScan->setInterval(100);         // 62.5ms interval
+  pBLEScan->setWindow(99);            // ~99% duty cycle
+  pBLEScan->setDuplicateFilter(false);
+  // Non-blocking continuous scan (duration=0)
+  pBLEScan->start(0, false);
+  Serial.println("[BLE] Non-blocking continuous scan started");
 }
 
 void deinitBLE() {
